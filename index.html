@@ -133,10 +133,9 @@ body::before{
 .globe-panel{height:700px;}
 /* Right: VRM */
 .vrm-panel{height:700px;}
-/* Make the VRM container fill its panel below the top bar (≈38px) */
 #vrm-container{position:relative;width:100%;height:calc(100% - 38px);}
 
-/* Right below globe: network activity */
+/* Below Globe: network activity */
 .activity{padding:10px 12px;font-size:12px}
 .row{display:flex;justify-content:space-between;margin:6px 0;opacity:0;animation:rise .45s ease-out forwards}
 .row:nth-child(even){color:#7cfffa}
@@ -205,229 +204,211 @@ body::before{
 
 <!-- Three.js + loaders -->
 <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
-<!-- ADD THIS: GLTFLoader -->
 <script src="https://unpkg.com/three@0.160.0/examples/js/loaders/GLTFLoader.js"></script>
-<!-- three-vrm (UMD) -->
 <script src="https://unpkg.com/@pixiv/three-vrm/lib/three-vrm.js"></script>
 
 <script>
-/* ===== Matrix rain ===== */
-(function(){
-  const canvas = document.getElementById('rain');
-  const ctx = canvas.getContext('2d');
-  const resize = ()=>{canvas.width = innerWidth; canvas.height = innerHeight};
-  addEventListener('resize', resize); resize();
-  const chars = '01░▒▓█abcdef0123456789'.split('');
-  const fontSize = 16;
-  const cols = ()=>Math.floor(canvas.width / fontSize);
-  let drops = Array(cols()).fill(0);
-  function draw(){
-    ctx.fillStyle = 'rgba(0,0,0,0.08)';
-    ctx.fillRect(0,0,canvas.width,canvas.height);
-    ctx.fillStyle = 'rgba(0,255,136,0.8)';
-    ctx.font = fontSize+'px JetBrains Mono, monospace';
-    drops.forEach((y,i)=>{
-      const text = chars[Math.floor(Math.random()*chars.length)];
-      const x = i*fontSize;
-      ctx.fillText(text, x, y*fontSize);
-      drops[i] = (y*fontSize>canvas.height && Math.random()>0.975)?0:y+1;
-    })
-    requestAnimationFrame(draw);
-  }
-  draw();
-})();
+document.addEventListener('DOMContentLoaded', () => {
 
-/* ===== Typing log ===== */
-const logEl = document.getElementById('log');
-const lines = [
-  "[INIT] establishing secure channel ... [OK]",
-  "[AUTH] multi-factor quantum handshake ... [OK]",
-  "[SCAN] enumerating subnets 10.0.0.0/8 ... [212,904 hosts]",
-  "[BRUTE] credential spray mitigated ... [BLOCKED]",
-  "[RECON] mapping services (tcp/22,443,8080,31337) ... [OK]",
-  "[EXFIL] preparing covert tunnel via DNS over HTTPS ... [ARMED]",
-  "[TRACE] geolocate nodes ... [LOCKED]",
-  "[STATUS] intrusion countermeasures ... <span class='k'>ONLINE</span>",
-  "[ALERT] anomaly detected :: <span class='k'>PRIORITY</span>",
-  "[ACTION] deploying sandbox decoys ... [RUNNING]",
-  "[OK] process complete — <span class='c'>ACCESS GRANTED</span>"
-];
-let idx=0;
-function pushLine(){
-  if(idx>=lines.length) return;
-  const div=document.createElement('div');
-  div.className='line';
-  div.innerHTML=lines[idx++];
-  logEl.appendChild(div);
-  logEl.scrollTop=logEl.scrollHeight;
-  setTimeout(pushLine,500);
-}
-pushLine();
-
-/* ===== Network activity ===== */
-const activity = document.getElementById('activity');
-const fmt = ()=>new Date().toLocaleTimeString();
-const items = ["handshake","icmp sweep","ssh auth","tls reneg","webhook","dns-txt","udp flood","fw alert","proxy hop"];
-setInterval(()=>{
-  const row=document.createElement('div');
-  row.className='row';
-  const left=items[Math.floor(Math.random()*items.length)].toUpperCase();
-  const right=Math.random()>0.88? '<span class="threat">THREAT</span>':'OK';
-  row.innerHTML=`<span>[${fmt()}] ${left}</span><span>${right}</span>`;
-  activity.prepend(row);
-  if(activity.children.length>18) activity.removeChild(activity.lastChild);
-},700);
-
-/* ===== Three.js globe ===== */
-const globeCanvas = document.getElementById('globe');
-const globeRenderer = new THREE.WebGLRenderer({canvas:globeCanvas, antialias:true, alpha:true});
-const globeScene = new THREE.Scene();
-const globeCamera = new THREE.PerspectiveCamera(45,1,0.1,1000);
-globeCamera.position.set(0,0,8);
-
-function fitGlobe(){
-  const rect = globeCanvas.parentElement.getBoundingClientRect();
-  const w = rect.width; const h = rect.height-38;
-  globeCanvas.style.top='38px';
-  globeRenderer.setSize(w,h,false);
-  globeCamera.aspect=w/h;
-  globeCamera.updateProjectionMatrix();
-}
-window.addEventListener('resize',fitGlobe);
-setTimeout(fitGlobe,0);
-
-const group = new THREE.Group();
-globeScene.add(group);
-
-const sphereGeo = new THREE.SphereGeometry(3,64,64);
-const wireMat = new THREE.MeshBasicMaterial({color:0x00ff88,wireframe:true,transparent:true,opacity:.65});
-const sphere = new THREE.Mesh(sphereGeo,wireMat); group.add(sphere);
-
-const glowGeo = new THREE.SphereGeometry(3.2,64,64);
-const glowMat = new THREE.MeshBasicMaterial({color:0x00ff88,transparent:true,opacity:.08});
-const glow = new THREE.Mesh(glowGeo,glowMat); group.add(glow);
-
-const ring=(r)=>{
-  const g = new THREE.RingGeometry(r*0.995,r*1.005,256);
-  const m = new THREE.MeshBasicMaterial({color:0x00ff88,side:THREE.DoubleSide,transparent:true,opacity:.25});
-  const mesh=new THREE.Mesh(g,m);
-  mesh.rotation.x=Math.PI/2;
-  group.add(mesh);
-}
-ring(3); ring(3*Math.cos(23.5*Math.PI/180)); ring(3*Math.cos(-23.5*Math.PI/180));
-
-const stars=new THREE.Points(new THREE.BufferGeometry(), new THREE.PointsMaterial({size:0.01,color:0x00ffaa}));
-const starCount=2000;
-const positions=new Float32Array(starCount*3);
-for(let i=0;i<starCount;i++){
-  const r=40+Math.random()*20;
-  const theta=Math.random()*Math.PI*2;
-  const phi=Math.acos(2*Math.random()-1);
-  positions[i*3+0]=r*Math.sin(phi)*Math.cos(theta);
-  positions[i*3+1]=r*Math.cos(phi);
-  positions[i*3+2]=r*Math.sin(phi)*Math.sin(theta);
-}
-stars.geometry.setAttribute('position', new THREE.BufferAttribute(positions,3));
-globeScene.add(stars);
-
-const light=new THREE.PointLight(0x00ff88,1,0);
-light.position.set(5,5,8);
-globeScene.add(light);
-
-const clock=new THREE.Clock();
-function animateGlobe(){
-  const dt=clock.getDelta();
-  group.rotation.y+=dt*0.35;
-  group.rotation.x=Math.sin(clock.elapsedTime*0.3)*0.08;
-  globeRenderer.render(globeScene,globeCamera);
-  requestAnimationFrame(animateGlobe);
-}
-animateGlobe();
-
-/* ===== VRM viewer (FIXED) ===== */
-const vrmContainer = document.getElementById('vrm-container'); // ✅ define it
-
-// Create a dedicated renderer for the VRM panel
-const vrmRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-vrmRenderer.setPixelRatio(window.devicePixelRatio || 1);
-vrmContainer.appendChild(vrmRenderer.domElement);
-
-// Resize VRM view to fill the panel
-function fitVRM(){
-  const rect = vrmContainer.getBoundingClientRect();
-  vrmRenderer.setSize(rect.width, rect.height, false);
-}
-window.addEventListener('resize', fitVRM);
-setTimeout(fitVRM,0);
-
-const vrmScene = new THREE.Scene();
-const vrmCamera = new THREE.PerspectiveCamera(30, 1, 0.1, 20);
-vrmCamera.position.set(0, 1.4, 2);
-
-const vrmLight = new THREE.DirectionalLight(0xffffff, 1);
-vrmLight.position.set(0, 2, 5);
-vrmScene.add(vrmLight);
-
-// keep camera aspect synced
-function updateVrmCameraAspect(){
-  const rect = vrmContainer.getBoundingClientRect();
-  vrmCamera.aspect = rect.width / rect.height;
-  vrmCamera.updateProjectionMatrix();
-}
-window.addEventListener('resize', updateVrmCameraAspect);
-setTimeout(updateVrmCameraAspect,0);
-
-let currentVrm = null;
-
-// ✅ Proper VRM loader setup
-const loader = new THREE.GLTFLoader();
-loader.register(parser => new THREE.VRMLoaderPlugin(parser)); // important
-
-// 🔗 Replace with your own hosted URL (Google Drive direct may still be CORS-blocked)
-const VRM_URL = "https://drive.google.com/uc?export=download&id=1x74ETD6I3A3ZuDe-lFSDAcRNyf7SnGbu";
-
-loader.load(
-  VRM_URL,
-  (gltf) => {
-    const vrm = gltf.userData.vrm;
-    if (!vrm) {
-      console.error("No VRM found in GLTF userData. Check loader plugin.");
-      return;
+  /* ===== Matrix rain ===== */
+  (function(){
+    const canvas = document.getElementById('rain');
+    const ctx = canvas.getContext('2d');
+    const resize = ()=>{canvas.width = innerWidth; canvas.height = innerHeight};
+    addEventListener('resize', resize); resize();
+    const chars = '01░▒▓█abcdef0123456789'.split('');
+    const fontSize = 16;
+    const cols = ()=>Math.floor(canvas.width / fontSize);
+    let drops = Array(cols()).fill(0);
+    function draw(){
+      ctx.fillStyle = 'rgba(0,0,0,0.08)';
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+      ctx.fillStyle = 'rgba(0,255,136,0.8)';
+      ctx.font = fontSize+'px JetBrains Mono, monospace';
+      drops.forEach((y,i)=>{
+        const text = chars[Math.floor(Math.random()*chars.length)];
+        const x = i*fontSize;
+        ctx.fillText(text, x, y*fontSize);
+        drops[i] = (y*fontSize>canvas.height && Math.random()>0.975)?0:y+1;
+      })
+      requestAnimationFrame(draw);
     }
-    if (currentVrm) vrmScene.remove(currentVrm.scene);
-    currentVrm = vrm;
+    draw();
+  })();
 
-    // prep
-    THREE.VRMUtils.removeUnnecessaryVertices(vrm.scene);
-    THREE.VRMUtils.removeUnnecessaryJoints(vrm.scene);
-
-    vrm.scene.rotation.y = Math.PI; // face camera
-    vrm.scene.position.set(0, 0, 0);
-    vrmScene.add(vrm.scene);
-
-    console.log("✅ VRM loaded:", vrm);
-  },
-  (xhr) => {
-    if (xhr.total) {
-      console.log(`VRM loading: ${(xhr.loaded / xhr.total * 100).toFixed(1)}%`);
-    } else {
-      console.log(`VRM loading: ${xhr.loaded} bytes`);
-    }
-  },
-  (err) => {
-    console.error("❌ VRM load error:", err);
-    console.warn("If this is a Google Drive link, CORS may block it. Try Netlify/Vercel/Dropbox.");
+  /* ===== Typing log ===== */
+  const logEl = document.getElementById('log');
+  const lines = [
+    "[INIT] establishing secure channel ... [OK]",
+    "[AUTH] multi-factor quantum handshake ... [OK]",
+    "[SCAN] enumerating subnets 10.0.0.0/8 ... [212,904 hosts]",
+    "[BRUTE] credential spray mitigated ... [BLOCKED]",
+    "[RECON] mapping services (tcp/22,443,8080,31337) ... [OK]",
+    "[EXFIL] preparing covert tunnel via DNS over HTTPS ... [ARMED]",
+    "[TRACE] geolocate nodes ... [LOCKED]",
+    "[STATUS] intrusion countermeasures ... <span class='k'>ONLINE</span>",
+    "[ALERT] anomaly detected :: <span class='k'>PRIORITY</span>",
+    "[ACTION] deploying sandbox decoys ... [RUNNING]",
+    "[OK] process complete — <span class='c'>ACCESS GRANTED</span>"
+  ];
+  let idx=0;
+  function pushLine(){
+    if(idx>=lines.length) return;
+    const div=document.createElement('div');
+    div.className='line';
+    div.innerHTML=lines[idx++];
+    logEl.appendChild(div);
+    logEl.scrollTop=logEl.scrollHeight;
+    setTimeout(pushLine,500);
   }
-);
+  pushLine();
 
-// VRM render loop
-function renderVRM() {
-  requestAnimationFrame(renderVRM);
-  if (currentVrm) currentVrm.update(clock.getDelta());
-  updateVrmCameraAspect();
-  vrmRenderer.render(vrmScene, vrmCamera);
-}
-renderVRM();
+  /* ===== Network activity ===== */
+  const activity = document.getElementById('activity');
+  const fmt = ()=>new Date().toLocaleTimeString();
+  const items = ["handshake","icmp sweep","ssh auth","tls reneg","webhook","dns-txt","udp flood","fw alert","proxy hop"];
+  setInterval(()=>{
+    const row=document.createElement('div');
+    row.className='row';
+    const left=items[Math.floor(Math.random()*items.length)].toUpperCase();
+    const right=Math.random()>0.88? '<span class="threat">THREAT</span>':'OK';
+    row.innerHTML=`<span>[${fmt()}] ${left}</span><span>${right}</span>`;
+    activity.prepend(row);
+    if(activity.children.length>18) activity.removeChild(activity.lastChild);
+  },700);
+
+  /* ===== Three.js globe ===== */
+  const globeCanvas = document.getElementById('globe');
+  const globeRenderer = new THREE.WebGLRenderer({canvas:globeCanvas, antialias:true, alpha:true});
+  const globeScene = new THREE.Scene();
+  const globeCamera = new THREE.PerspectiveCamera(45,1,0.1,1000);
+  globeCamera.position.set(0,0,8);
+
+  function fitGlobe(){
+    const rect = globeCanvas.parentElement.getBoundingClientRect();
+    const w = rect.width; const h = rect.height-38;
+    globeCanvas.style.top='38px';
+    globeRenderer.setSize(w,h,false);
+    globeCamera.aspect=w/h;
+    globeCamera.updateProjectionMatrix();
+  }
+  window.addEventListener('resize',fitGlobe);
+  setTimeout(fitGlobe,0);
+
+  const group = new THREE.Group();
+  globeScene.add(group);
+
+  const sphereGeo = new THREE.SphereGeometry(3,64,64);
+  const wireMat = new THREE.MeshBasicMaterial({color:0x00ff88,wireframe:true,transparent:true,opacity:.65});
+  const sphere = new THREE.Mesh(sphereGeo,wireMat); group.add(sphere);
+
+  const glowGeo = new THREE.SphereGeometry(3.2,64,64);
+  const glowMat = new THREE.MeshBasicMaterial({color:0x00ff88,transparent:true,opacity:.08});
+  const glow = new THREE.Mesh(glowGeo,glowMat); group.add(glow);
+
+  const ring=(r)=>{
+    const g = new THREE.RingGeometry(r*0.995,r*1.005,256);
+    const m = new THREE.MeshBasicMaterial({color:0x00ff88,side:THREE.DoubleSide,transparent:true,opacity:.25});
+    const mesh=new THREE.Mesh(g,m);
+    mesh.rotation.x=Math.PI/2;
+    group.add(mesh);
+  }
+  ring(3); ring(3*Math.cos(23.5*Math.PI/180)); ring(3*Math.cos(-23.5*Math.PI/180));
+
+  const stars=new THREE.Points(new THREE.BufferGeometry(), new THREE.PointsMaterial({size:0.01,color:0x00ffaa}));
+  const starCount=2000;
+  const positions=new Float32Array(starCount*3);
+  for(let i=0;i<starCount;i++){
+    const r=40+Math.random()*20;
+    const theta=Math.random()*Math.PI*2;
+    const phi=Math.acos(2*Math.random()-1);
+    positions[i*3+0]=r*Math.sin(phi)*Math.cos(theta);
+    positions[i*3+1]=r*Math.cos(phi);
+    positions[i*3+2]=r*Math.sin(phi)*Math.sin(theta);
+  }
+  stars.geometry.setAttribute('position', new THREE.BufferAttribute(positions,3));
+  globeScene.add(stars);
+
+  const light=new THREE.PointLight(0x00ff88,1,0);
+  light.position.set(5,5,8);
+  globeScene.add(light);
+
+  const clock=new THREE.Clock();
+  function animateGlobe(){
+    const dt=clock.getDelta();
+    group.rotation.y+=dt*0.35;
+    group.rotation.x=Math.sin(clock.elapsedTime*0.3)*0.08;
+    globeRenderer.render(globeScene,globeCamera);
+    requestAnimationFrame(animateGlobe);
+  }
+  animateGlobe();
+
+  /* ===== VRM viewer ===== */
+  const vrmContainer = document.getElementById('vrm-container');
+  if(!vrmContainer){console.error("VRM container not found!"); return;}
+
+  const vrmRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  vrmRenderer.setPixelRatio(window.devicePixelRatio || 1);
+  vrmContainer.appendChild(vrmRenderer.domElement);
+
+  function fitVRM(){
+    const rect = vrmContainer.getBoundingClientRect();
+    vrmRenderer.setSize(rect.width, rect.height, false);
+  }
+  window.addEventListener('resize', fitVRM);
+  setTimeout(fitVRM,0);
+
+  const vrmScene = new THREE.Scene();
+  const vrmCamera = new THREE.PerspectiveCamera(30,1,0.1,20);
+  vrmCamera.position.set(0,1.4,2);
+
+  const vrmLight = new THREE.DirectionalLight(0xffffff,1);
+  vrmLight.position.set(0,2,5);
+  vrmScene.add(vrmLight);
+
+  function updateVrmCameraAspect(){
+    const rect = vrmContainer.getBoundingClientRect();
+    vrmCamera.aspect = rect.width/rect.height;
+    vrmCamera.updateProjectionMatrix();
+  }
+  window.addEventListener('resize', updateVrmCameraAspect);
+  setTimeout(updateVrmCameraAspect,0);
+
+  let currentVrm = null;
+  const loader = new THREE.GLTFLoader();
+  loader.register(parser => new THREE.VRMLoaderPlugin(parser));
+
+  const VRM_URL = "https://drive.google.com/uc?export=download&id=1x74ETD6I3A3ZuDe-lFSDAcRNyf7SnGbu";
+  loader.load(VRM_URL,
+    (gltf)=>{
+      const vrm = gltf.userData.vrm;
+      if(!vrm){ console.error("No VRM found"); return;}
+      if(currentVrm) vrmScene.remove(currentVrm.scene);
+      currentVrm = vrm;
+
+      THREE.VRMUtils.removeUnnecessaryVertices(vrm.scene);
+      THREE.VRMUtils.removeUnnecessaryJoints(vrm.scene);
+
+      vrm.scene.rotation.y=Math.PI;
+      vrm.scene.position.set(0,0,0);
+      vrmScene.add(vrm.scene);
+
+      console.log("✅ VRM loaded:", vrm);
+    },
+    (xhr)=>{ console.log(`VRM loading: ${xhr.loaded}`); },
+    (err)=>{ console.error("❌ VRM load error:", err); }
+  );
+
+  const vrmClock = new THREE.Clock();
+  function renderVRM(){
+    requestAnimationFrame(renderVRM);
+    if(currentVrm) currentVrm.update(vrmClock.getDelta());
+    updateVrmCameraAspect();
+    vrmRenderer.render(vrmScene, vrmCamera);
+  }
+  renderVRM();
+
+});
 </script>
 </body>
 </html>
