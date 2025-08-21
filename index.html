@@ -359,7 +359,7 @@ const loader = new THREE.GLTFLoader();
 loader.crossOrigin = "anonymous";
 
 // Load a VRM model (replace with your file path / URL)
-loader.load("C:\Users\Chirality\Documents\test\model.vrm", (gltf) => {
+loader.load("https://drive.google.com/uc?export=download&id=1x74ETD6I3A3ZuDe-lFSDAcRNyf7SnGbu", (gltf) => {
   THREE.VRM.from(gltf).then((vrm) => {
     if (currentVrm) vrmScene.remove(currentVrm.scene);
     currentVrm = vrm;
@@ -378,3 +378,4 @@ renderVRM();
 </script>
 </body>
 </html>
+
