@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>WOLF_PROTOCOL.exe — ACCESS GRANTED</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;800&display=swap" rel="stylesheet" />
+<style>
+:root{
+  --hack:#00ff88;
+  --hack2:#00ffa6;
+  --warn:#ff8800;
+  --bg:#020302;
+  --crt-scan:rgba(0,255,128,.06);
+  --grid:rgba(0,255,136,.08);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:'JetBrains Mono',monospace;
+  background: radial-gradient(1200px 600px at 75% 0%,rgba(0,255,160,.08),transparent 60%),
+              radial-gradient(800px 400px at 20% 100%,rgba(0,255,160,.08),transparent 60%), #000;
+  color:var(--hack);
+  overflow:hidden;
+}
+
+/* Subtle grid + scanlines */
+body::before{
+  content:"";
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  z-index:1;
+  background: repeating-linear-gradient(0deg,transparent 0 2px,rgba(0,255,128,.04) 2px 3px),
+              repeating-linear-gradient(90deg,transparent 0 2px,rgba(0,255,128,.03) 2px 3px);
+  mix-blend-mode:screen;
+}
+
+.crt{
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  z-index:9999;
+  background: linear-gradient(rgba(0,0,0,0) 50%, rgba(0,0,0,.25) 50%),
+              linear-gradient(90deg, rgba(255,0,0,.06), rgba(0,255,0,.02), rgba(0,0,255,.06));
+  background-size:100% 2px, 3px 100%;
+  animation:crt 0.16s linear infinite;
+}
+
+@keyframes crt{
+  0%,98%{opacity:1} 99%{opacity:.98} 100%{opacity:1}
+}
+
+/* Layout */
+.wrap{
+  display:grid;
+  grid-template-columns:380px 1fr 420px;
+  grid-template-rows:auto 400px;
+  gap:14px;
+  height:100%;
+  padding:14px;
+}
+
+@media (max-width: 1100px){
+  .wrap{grid-template-columns:1fr;grid-auto-rows:minmax(240px,auto);overflow:auto}
+}
+
+.panel{
+  position:relative;
+  background:rgba(0,8,0,.82);
+  border:2px solid var(--hack);
+  box-shadow:0 0 18px rgba(0,255,128,.25) inset, 0 0 24px rgba(0,255,128,.18);
+  border-radius:10px;
+  overflow:hidden
+}
+
+.panel:hover{
+  border-color:var(--hack2);
+  box-shadow:0 0 24px rgba(0,255,168,.35) inset, 0 0 36px rgba(0,255,168,.25)
+}
+
+.bar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:8px 12px;
+  border-bottom:1px solid var(--hack);
+  background:linear-gradient(0deg,rgba(0,255,136,.08),rgba(0,255,136,.12))
+}
+
+.title{font-weight:800;letter-spacing:.12em}
+
+.dots{display:flex;gap:6px}
+.dot{width:10px;height:10px;border:1px solid var(--hack);border-radius:2px}
+
+/* Header */
+.header{
+  grid-column:1/-1;
+  height:140px;
+  border-color:#ff2a5d;
+  box-shadow:0 0 30px rgba(255,42,93,.25) inset,0 0 30px rgba(255,42,93,.25)
+}
+
+.header .bar{
+  border-color:#ff2a5d;
+  background:linear-gradient(0deg,rgba(255,42,93,.14),rgba(255,42,93,.22))
+}
+
+.wolf{font-size:12px;line-height:1.05;color:#ff2a5d;filter:drop-shadow(0 0 6px #ff2a5d);text-align:center;margin:4px 0}
+
+.big{font-weight:800;font-size:32px;letter-spacing:.2em;text-align:center;margin-top:4px;animation:glitch 3s ease-in-out infinite}
+
+@keyframes glitch{
+  0%,90%,100%{transform:translate(0);filter:hue-rotate(0)}
+  92%{transform:translate(-2px,2px) skewX(.2deg);filter:hue-rotate(90deg)}
+  94%{transform:translate(2px,-2px) skewY(.2deg);filter:hue-rotate(180deg)}
+  96%{transform:translate(-1px,-1px);filter:hue-rotate(270deg)}
+}
+
+.sub{text-align:center;color:#7affc2;font-weight:600}
+
+/* Left: terminal */
+.terminal{display:flex;flex-direction:column}
+.log{padding:10px 12px;overflow:auto;height:100%;font-size:12px}
+.line{opacity:0;animation:type .35s ease-out forwards}
+.line .k{color:#ff2a5d;font-weight:700}
+.line .s{color:#7cfffa}
+.line .c{color:#58ff9a}
+
+@keyframes type{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:translateX(0)}}
+
+/* Center: Globe */
+.globe-panel{height:700px;}
+
+/* Right: VRM */
+.vrm-panel{height:700px;}
+
+/* Right below globe: network activity */
+.activity{padding:10px 12px;font-size:12px}
+.row{display:flex;justify-content:space-between;margin:6px 0;opacity:0;animation:rise .45s ease-out forwards}
+.row:nth-child(even){color:#7cfffa}
+.threat{color:#ff2a5d;font-weight:800;animation:pulse 1s ease-in-out infinite}
+
+@keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+
+/* Matrix rain */
+#rain{position:fixed;inset:0;z-index:0;opacity:.35}
+</style>
+</head>
+<body>
+<canvas id="rain"></canvas>
+<div class="crt" aria-hidden="true"></div>
+<div class="wrap">
+
+  <!-- Header -->
+  <section class="panel header">
+    <div class="bar">
+      <div class="title">WOLF_PROTOCOL.exe — ROOT ACCESS</div>
+      <div class="dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+    </div>
+    <div class="wolf">█▀█ █▀█ █░░ █▀▀ █░█   █▀█ █▀█ █▀█ █▀█ █▀█<br/>█▀▀ █▀▄ █▄▄ █▄▄ █▄█   █▀▀ █▄█ █▀▄ █▄█ █▄█</div>
+    <div class="big">ACCESS GRANTED // SHADOWWOLF</div>
+    <div class="sub">[ STATUS: ONLINE ] [ THREAT_LEVEL: MAXIMUM ] [ CHANNEL: ENCRYPTED ]</div>
+  </section>
+
+  <!-- Left: typing terminal -->
+  <section class="panel terminal">
+    <div class="bar">
+      <div class="title">exploit_framework.py — EXECUTING</div>
+      <div class="dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+    </div>
+    <div class="log" id="log"></div>
+  </section>
+
+  <!-- Center: Globe -->
+  <section class="panel globe-panel">
+    <div class="bar">
+      <div class="title">GLOBAL_NET::SCAN — ORBITAL VIEW</div>
+      <div class="dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+    </div>
+    <canvas id="globe" aria-label="spinning green wireframe globe"></canvas>
+  </section>
+
+  <!-- Right: VRM panel -->
+  <section class="panel vrm-panel">
+    <div class="bar">
+      <div class="title">VRM_MODEL_VIEWER — LOADING</div>
+      <div class="dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+    </div>
+    <div id="vrm-container"></div>
+  </section>
+
+  <!-- Below Globe: network activity -->
+  <section class="panel">
+    <div class="bar">
+      <div class="title">NETWORK_INTRUSION.exe — LIVE FEED</div>
+      <div class="dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+    </div>
+    <div class="activity" id="activity"></div>
+  </section>
+
+</div>
+
+<!-- Three.js -->
+<script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+<script src="https://unpkg.com/@pixiv/three-vrm/lib/three-vrm.js"></script>
+<script>
+/* ===== Matrix rain ===== */
+(function(){
+  const canvas = document.getElementById('rain');
+  const ctx = canvas.getContext('2d');
+  const resize = ()=>{canvas.width = innerWidth; canvas.height = innerHeight};
+  addEventListener('resize', resize); resize();
+  const chars = '01░▒▓█abcdef0123456789'.split('');
+  const fontSize = 16;
+  const cols = ()=>Math.floor(canvas.width / fontSize);
+  let drops = Array(cols()).fill(0);
+  function draw(){
+    ctx.fillStyle = 'rgba(0,0,0,0.08)';
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle = 'rgba(0,255,136,0.8)';
+    ctx.font = fontSize+'px JetBrains Mono, monospace';
+    drops.forEach((y,i)=>{
+      const text = chars[Math.floor(Math.random()*chars.length)];
+      const x = i*fontSize;
+      ctx.fillText(text, x, y*fontSize);
+      drops[i] = (y*fontSize>canvas.height && Math.random()>0.975)?0:y+1;
+    })
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+/* ===== Typing log ===== */
+const logEl = document.getElementById('log');
+const lines = [
+  "[INIT] establishing secure channel ... [OK]",
+  "[AUTH] multi-factor quantum handshake ... [OK]",
+  "[SCAN] enumerating subnets 10.0.0.0/8 ... [212,904 hosts]",
+  "[BRUTE] credential spray mitigated ... [BLOCKED]",
+  "[RECON] mapping services (tcp/22,443,8080,31337) ... [OK]",
+  "[EXFIL] preparing covert tunnel via DNS over HTTPS ... [ARMED]",
+  "[TRACE] geolocate nodes ... [LOCKED]",
+  "[STATUS] intrusion countermeasures ... <span class='k'>ONLINE</span>",
+  "[ALERT] anomaly detected :: <span class='k'>PRIORITY</span>",
+  "[ACTION] deploying sandbox decoys ... [RUNNING]",
+  "[OK] process complete — <span class='c'>ACCESS GRANTED</span>"
+];
+let idx=0;
+function pushLine(){
+  if(idx>=lines.length) return;
+  const div=document.createElement('div');
+  div.className='line';
+  div.innerHTML=lines[idx++];
+  logEl.appendChild(div);
+  logEl.scrollTop=logEl.scrollHeight;
+  setTimeout(pushLine,500);
+}
+pushLine();
+
+/* ===== Network activity ===== */
+const activity = document.getElementById('activity');
+const fmt = ()=>new Date().toLocaleTimeString();
+const items = ["handshake","icmp sweep","ssh auth","tls reneg","webhook","dns-txt","udp flood","fw alert","proxy hop"];
+setInterval(()=>{
+  const row=document.createElement('div');
+  row.className='row';
+  const left=items[Math.floor(Math.random()*items.length)].toUpperCase();
+  const right=Math.random()>0.88? '<span class="threat">THREAT</span>':'OK';
+  row.innerHTML=`<span>[${fmt()}] ${left}</span><span>${right}</span>`;
+  activity.prepend(row);
+  if(activity.children.length>18) activity.removeChild(activity.lastChild);
+},700);
+
+/* ===== Three.js globe ===== */
+const canvas = document.getElementById('globe');
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:true});
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(45,1,0.1,1000);
+camera.position.set(0,0,8);
+
+function fit(){
+  const rect = canvas.parentElement.getBoundingClientRect();
+  const w = rect.width; const h = rect.height-38;
+  canvas.style.top='38px';
+  renderer.setSize(w,h,false);
+  camera.aspect=w/h;
+  camera.updateProjectionMatrix();
+}
+window.addEventListener('resize',fit);
+setTimeout(fit,0);
+
+const group = new THREE.Group();
+scene.add(group);
+
+const sphereGeo = new THREE.SphereGeometry(3,64,64);
+const wireMat = new THREE.MeshBasicMaterial({color:0x00ff88,wireframe:true,transparent:true,opacity:.65});
+const sphere = new THREE.Mesh(sphereGeo,wireMat); group.add(sphere);
+
+const glowGeo = new THREE.SphereGeometry(3.2,64,64);
+const glowMat = new THREE.MeshBasicMaterial({color:0x00ff88,transparent:true,opacity:.08});
+const glow = new THREE.Mesh(glowGeo,glowMat); group.add(glow);
+
+const ring=(r)=>{
+  const g = new THREE.RingGeometry(r*0.995,r*1.005,256);
+  const m = new THREE.MeshBasicMaterial({color:0x00ff88,side:THREE.DoubleSide,transparent:true,opacity:.25});
+  const mesh=new THREE.Mesh(g,m);
+  mesh.rotation.x=Math.PI/2;
+  group.add(mesh);
+}
+ring(3); ring(3*Math.cos(23.5*Math.PI/180)); ring(3*Math.cos(-23.5*Math.PI/180));
+
+const stars=new THREE.Points(new THREE.BufferGeometry(), new THREE.PointsMaterial({size:0.01,color:0x00ffaa}));
+const starCount=2000;
+const positions=new Float32Array(starCount*3);
+for(let i=0;i<starCount;i++){
+  const r=40+Math.random()*20;
+  const theta=Math.random()*Math.PI*2;
+  const phi=Math.acos(2*Math.random()-1);
+  positions[i*3+0]=r*Math.sin(phi)*Math.cos(theta);
+  positions[i*3+1]=r*Math.cos(phi);
+  positions[i*3+2]=r*Math.sin(phi)*Math.sin(theta);
+}
+stars.geometry.setAttribute('position', new THREE.BufferAttribute(positions,3));
+scene.add(stars);
+
+const light=new THREE.PointLight(0x00ff88,1,0);
+light.position.set(5,5,8);
+scene.add(light);
+
+const clock=new THREE.Clock();
+function animate(){
+  const dt=clock.getDelta();
+  group.rotation.y+=dt*0.35;
+  group.rotation.x=Math.sin(clock.elapsedTime*0.3)*0.08;
+  renderer.render(scene,camera);
+  requestAnimationFrame(animate);
+}
+animate();
+
+/* ===== VRM viewer placeholder ===== */
+
+const vrmRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+vrmRenderer.setSize(vrmContainer.clientWidth, vrmContainer.clientHeight);
+vrmContainer.appendChild(vrmRenderer.domElement);
+
+const vrmScene = new THREE.Scene();
+const vrmCamera = new THREE.PerspectiveCamera(30, vrmContainer.clientWidth / vrmContainer.clientHeight, 0.1, 20);
+vrmCamera.position.set(0, 1.4, 2);
+
+const vrmLight = new THREE.DirectionalLight(0xffffff, 1);
+vrmLight.position.set(0, 2, 5);
+vrmScene.add(vrmLight);
+
+let currentVrm = null;
+
+const loader = new THREE.GLTFLoader();
+loader.crossOrigin = "anonymous";
+
+// Load a VRM model (replace with your file path / URL)
+loader.load("C:\Users\Chirality\Documents\test\model.vrm", (gltf) => {
+  THREE.VRM.from(gltf).then((vrm) => {
+    if (currentVrm) vrmScene.remove(currentVrm.scene);
+    currentVrm = vrm;
+    vrmScene.add(vrm.scene);
+  });
+});
+
+// VRM animation loop
+function renderVRM() {
+  requestAnimationFrame(renderVRM);
+  if (currentVrm) currentVrm.update(clock.getDelta());
+  vrmRenderer.render(vrmScene, vrmCamera);
+}
+renderVRM();
+
+</script>
+</body>
+</html>
