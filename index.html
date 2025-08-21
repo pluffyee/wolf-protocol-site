@@ -131,9 +131,10 @@ body::before{
 
 /* Center: Globe */
 .globe-panel{height:700px;}
-
 /* Right: VRM */
 .vrm-panel{height:700px;}
+/* Make the VRM container fill its panel below the top bar (≈38px) */
+#vrm-container{position:relative;width:100%;height:calc(100% - 38px);}
 
 /* Right below globe: network activity */
 .activity{padding:10px 12px;font-size:12px}
@@ -202,9 +203,13 @@ body::before{
 
 </div>
 
-<!-- Three.js -->
+<!-- Three.js + loaders -->
 <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+<!-- ADD THIS: GLTFLoader -->
+<script src="https://unpkg.com/three@0.160.0/examples/js/loaders/GLTFLoader.js"></script>
+<!-- three-vrm (UMD) -->
 <script src="https://unpkg.com/@pixiv/three-vrm/lib/three-vrm.js"></script>
+
 <script>
 /* ===== Matrix rain ===== */
 (function(){
@@ -274,25 +279,25 @@ setInterval(()=>{
 },700);
 
 /* ===== Three.js globe ===== */
-const canvas = document.getElementById('globe');
-const renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:true});
-const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(45,1,0.1,1000);
-camera.position.set(0,0,8);
+const globeCanvas = document.getElementById('globe');
+const globeRenderer = new THREE.WebGLRenderer({canvas:globeCanvas, antialias:true, alpha:true});
+const globeScene = new THREE.Scene();
+const globeCamera = new THREE.PerspectiveCamera(45,1,0.1,1000);
+globeCamera.position.set(0,0,8);
 
-function fit(){
-  const rect = canvas.parentElement.getBoundingClientRect();
+function fitGlobe(){
+  const rect = globeCanvas.parentElement.getBoundingClientRect();
   const w = rect.width; const h = rect.height-38;
-  canvas.style.top='38px';
-  renderer.setSize(w,h,false);
-  camera.aspect=w/h;
-  camera.updateProjectionMatrix();
+  globeCanvas.style.top='38px';
+  globeRenderer.setSize(w,h,false);
+  globeCamera.aspect=w/h;
+  globeCamera.updateProjectionMatrix();
 }
-window.addEventListener('resize',fit);
-setTimeout(fit,0);
+window.addEventListener('resize',fitGlobe);
+setTimeout(fitGlobe,0);
 
 const group = new THREE.Group();
-scene.add(group);
+globeScene.add(group);
 
 const sphereGeo = new THREE.SphereGeometry(3,64,64);
 const wireMat = new THREE.MeshBasicMaterial({color:0x00ff88,wireframe:true,transparent:true,opacity:.65});
@@ -323,59 +328,106 @@ for(let i=0;i<starCount;i++){
   positions[i*3+2]=r*Math.sin(phi)*Math.sin(theta);
 }
 stars.geometry.setAttribute('position', new THREE.BufferAttribute(positions,3));
-scene.add(stars);
+globeScene.add(stars);
 
 const light=new THREE.PointLight(0x00ff88,1,0);
 light.position.set(5,5,8);
-scene.add(light);
+globeScene.add(light);
 
 const clock=new THREE.Clock();
-function animate(){
+function animateGlobe(){
   const dt=clock.getDelta();
   group.rotation.y+=dt*0.35;
   group.rotation.x=Math.sin(clock.elapsedTime*0.3)*0.08;
-  renderer.render(scene,camera);
-  requestAnimationFrame(animate);
+  globeRenderer.render(globeScene,globeCamera);
+  requestAnimationFrame(animateGlobe);
 }
-animate();
+animateGlobe();
 
-/* ===== VRM viewer placeholder ===== */
+/* ===== VRM viewer (FIXED) ===== */
+const vrmContainer = document.getElementById('vrm-container'); // ✅ define it
 
+// Create a dedicated renderer for the VRM panel
 const vrmRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-vrmRenderer.setSize(vrmContainer.clientWidth, vrmContainer.clientHeight);
+vrmRenderer.setPixelRatio(window.devicePixelRatio || 1);
 vrmContainer.appendChild(vrmRenderer.domElement);
 
+// Resize VRM view to fill the panel
+function fitVRM(){
+  const rect = vrmContainer.getBoundingClientRect();
+  vrmRenderer.setSize(rect.width, rect.height, false);
+}
+window.addEventListener('resize', fitVRM);
+setTimeout(fitVRM,0);
+
 const vrmScene = new THREE.Scene();
-const vrmCamera = new THREE.PerspectiveCamera(30, vrmContainer.clientWidth / vrmContainer.clientHeight, 0.1, 20);
+const vrmCamera = new THREE.PerspectiveCamera(30, 1, 0.1, 20);
 vrmCamera.position.set(0, 1.4, 2);
 
 const vrmLight = new THREE.DirectionalLight(0xffffff, 1);
 vrmLight.position.set(0, 2, 5);
 vrmScene.add(vrmLight);
 
+// keep camera aspect synced
+function updateVrmCameraAspect(){
+  const rect = vrmContainer.getBoundingClientRect();
+  vrmCamera.aspect = rect.width / rect.height;
+  vrmCamera.updateProjectionMatrix();
+}
+window.addEventListener('resize', updateVrmCameraAspect);
+setTimeout(updateVrmCameraAspect,0);
+
 let currentVrm = null;
 
+// ✅ Proper VRM loader setup
 const loader = new THREE.GLTFLoader();
-loader.crossOrigin = "anonymous";
+loader.register(parser => new THREE.VRMLoaderPlugin(parser)); // important
 
-// Load a VRM model (replace with your file path / URL)
-loader.load("https://drive.google.com/uc?export=download&id=1x74ETD6I3A3ZuDe-lFSDAcRNyf7SnGbu", (gltf) => {
-  THREE.VRM.from(gltf).then((vrm) => {
+// 🔗 Replace with your own hosted URL (Google Drive direct may still be CORS-blocked)
+const VRM_URL = "https://drive.google.com/uc?export=download&id=1x74ETD6I3A3ZuDe-lFSDAcRNyf7SnGbu";
+
+loader.load(
+  VRM_URL,
+  (gltf) => {
+    const vrm = gltf.userData.vrm;
+    if (!vrm) {
+      console.error("No VRM found in GLTF userData. Check loader plugin.");
+      return;
+    }
     if (currentVrm) vrmScene.remove(currentVrm.scene);
     currentVrm = vrm;
-    vrmScene.add(vrm.scene);
-  });
-});
 
-// VRM animation loop
+    // prep
+    THREE.VRMUtils.removeUnnecessaryVertices(vrm.scene);
+    THREE.VRMUtils.removeUnnecessaryJoints(vrm.scene);
+
+    vrm.scene.rotation.y = Math.PI; // face camera
+    vrm.scene.position.set(0, 0, 0);
+    vrmScene.add(vrm.scene);
+
+    console.log("✅ VRM loaded:", vrm);
+  },
+  (xhr) => {
+    if (xhr.total) {
+      console.log(`VRM loading: ${(xhr.loaded / xhr.total * 100).toFixed(1)}%`);
+    } else {
+      console.log(`VRM loading: ${xhr.loaded} bytes`);
+    }
+  },
+  (err) => {
+    console.error("❌ VRM load error:", err);
+    console.warn("If this is a Google Drive link, CORS may block it. Try Netlify/Vercel/Dropbox.");
+  }
+);
+
+// VRM render loop
 function renderVRM() {
   requestAnimationFrame(renderVRM);
   if (currentVrm) currentVrm.update(clock.getDelta());
+  updateVrmCameraAspect();
   vrmRenderer.render(vrmScene, vrmCamera);
 }
 renderVRM();
-
 </script>
 </body>
 </html>
-
