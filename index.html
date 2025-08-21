@@ -378,7 +378,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const loader = new THREE.GLTFLoader();
   loader.register(parser => new THREE.VRMLoaderPlugin(parser));
 
-  const VRM_URL = "https://drive.google.com/uc?export=download&id=1x74ETD6I3A3ZuDe-lFSDAcRNyf7SnGbu";
+  const VRM_URL = "https://www.dropbox.com/scl/fi/eulqbf856knaca8ewfvll/model.vrm?rlkey=9oxm8m3grduomuc0gprhuqm5p&st=1kca2t7b&dl=1";
   loader.load(VRM_URL,
     (gltf)=>{
       const vrm = gltf.userData.vrm;
@@ -412,4 +412,5 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 </body>
 </html>
+
 
